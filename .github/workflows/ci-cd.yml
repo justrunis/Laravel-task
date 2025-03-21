@@ -1,0 +1,91 @@
+name: CI-CI-CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Laravel Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: bitnami/postgres:latest
+        env:
+          POSTGRESQL_DATABASE: laravel_test
+          POSTGRESQL_USERNAME: laravel
+          POSTGRESQL_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+      redis:
+        image: bitnami/redis:latest
+        env:
+          ALLOW_EMPTY_PASSWORD: "yes"
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start Docker containers
+        run: |
+          docker compose up -d --build
+
+      - name: Wait for services to be ready
+        run: sleep 15
+
+      - name: Install Composer dependencies
+        run: |
+          docker compose exec -T app composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Set permissions for storage and bootstrap/cache
+        run: |
+          docker compose exec -T app chmod -R 777 storage bootstrap/cache
+
+      - name: Run Laravel migrations
+        run: |
+          docker compose exec -T app php artisan migrate --env=testing --force
+
+      - name: Run PHPUnit tests
+        run: |
+          docker compose exec -T app php artisan test
+
+      - name: Stop and clean up Docker containers
+        run: docker compose down
+
+  build-and-push:
+    name: Build and Push Docker Images
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and tag Docker images
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/app:latest -f laravel-docker/Dockerfile .
+          docker build -t ghcr.io/${{ github.repository }}/queue-worker:latest -f laravel-docker/Dockerfile .
+
+      - name: Push images to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository }}/app:latest
+          docker push ghcr.io/${{ github.repository }}/queue-worker:latest

@@ -35,6 +35,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Generate APP_KEY
+        run: docker compose exec -T app php artisan key:generate
+
+      - name: Set up environment variables
+        run: |
+          echo "APP_ENV=testing" >> .env
+          echo "APP_KEY=base64:$(php artisan key:generate --show)" >> .env
+          echo "DB_CONNECTION=pgsql" >> .env
+          echo "DB_HOST=postgres" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_DATABASE=laravel_test" >> .env
+          echo "DB_USERNAME=laravel" >> .env
+          echo "DB_PASSWORD=secret" >> .env
+          echo "REDIS_HOST=redis" >> .env
+          echo "REDIS_PASSWORD=secret" >> .env
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

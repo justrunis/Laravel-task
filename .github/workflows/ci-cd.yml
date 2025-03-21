@@ -17,9 +17,9 @@ jobs:
       postgres:
         image: bitnami/postgresql:latest
         env:
-          POSTGRESQL_DATABASE: ${{ secrets.POSTGRESQL_DATABASE }}
-          POSTGRESQL_USERNAME: ${{ secrets.POSTGRESQL_USERNAME }}
-          POSTGRESQL_PASSWORD: ${{ secrets.POSTGRESQL_PASSWORD }}
+          POSTGRESQL_DATABASE: postgres-database
+          POSTGRESQL_USERNAME: postgres-username
+          POSTGRESQL_PASSWORD: postgres-password
         ports:
           - 5433:5432
         options: --health-cmd "pg_isready -U laravel" --health-interval 5s --health-timeout 5s --health-retries 10
@@ -28,6 +28,7 @@ jobs:
         image: bitnami/redis:latest
         env:
           ALLOW_EMPTY_PASSWORD: "yes"
+          REDIS_PASSWORD: redis-password
         ports:
           - 6380:6379
 
